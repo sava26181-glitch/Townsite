@@ -230,7 +230,7 @@ func _facade(wall: Color, glass: Color, frame: float, lit: float, seed_i: int, m
 
 func set_night(k: float) -> void:
 	for m in facade_mats:
-		(m as StandardMaterial3D).emission_energy_multiplier = k * 2.2
+		(m as StandardMaterial3D).emission_energy_multiplier = k * 1.1
 	if lamp_mat:
 		lamp_mat.emission_energy_multiplier = 0.3 + k * 6.0
 

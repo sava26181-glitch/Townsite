@@ -60,9 +60,9 @@ func _ready() -> void:
 	add_child(missions)
 	hud = HudScript.new()
 	add_child(hud)
-	for i in 6:
+	for i in 8:
 		var l = OmniLight3D.new()
-		l.omni_range = 16.0
+		l.omni_range = 20.0
 		l.light_color = Color(1.0, 0.82, 0.55)
 		l.light_energy = 0.0
 		l.shadow_enabled = false
@@ -131,8 +131,8 @@ func _update_daytime(delta: float) -> void:
 	sun.light_energy = day * 1.25
 	sun.visible = elev > -3.0
 	env.ambient_light_sky_contribution = lerp(0.0, 1.0, day)
-	env.ambient_light_color = Color(0.17, 0.2, 0.32)
-	env.ambient_light_energy = lerp(1.0, 1.0, day)
+	env.ambient_light_color = Color(0.32, 0.36, 0.5)
+	env.ambient_light_energy = lerp(1.4, 1.0, day)
 	env.fog_light_color = Color(0.05, 0.06, 0.1).lerp(Color(0.62, 0.68, 0.78), day)
 	env.background_energy_multiplier = lerp(0.15, 1.0, day)
 	city.set_night(night)
@@ -154,7 +154,7 @@ func _update_lamps() -> void:
 		var l: OmniLight3D = lamp_lights[i]
 		if i < cand.size():
 			l.global_position = cand[i][1]
-			l.light_energy = 2.2 * night
+			l.light_energy = 4.0 * night
 		else:
 			l.light_energy = 0.0
 

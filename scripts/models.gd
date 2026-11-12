@@ -133,7 +133,7 @@ static func _emit_tri(st: SurfaceTool, v: Array, nn: Array, outward: Vector3) ->
 	var b: Vector3 = v[1]
 	var c: Vector3 = v[2]
 	var order = [0, 1, 2]
-	if (b - a).cross(c - a).dot(outward) > 0.0:
+	if (b - a).cross(c - a).dot(outward) < 0.0:
 		order = [0, 2, 1]
 	for k in order:
 		st.set_normal(nn[k])
