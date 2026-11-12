@@ -569,7 +569,8 @@ func _shot(shot_name: String) -> void:
 func _take_shots() -> void:
 	time_of_day = 10.5
 	await _wait(90)
-	cam.yaw = 2.4
+	var sun_yaw = deg_to_rad(210.0 + time_of_day * 3.0)
+	cam.yaw = sun_yaw
 	cam.pitch = -0.12
 	await _wait(40)
 	await _shot("1_street_day")
@@ -577,11 +578,24 @@ func _take_shots() -> void:
 	var c = spawn_car("sport", Color(0.7, 0.04, 0.04), "none", n, city.neighbors(n)[0])
 	await _wait(20)
 	player.enter_car(c)
-	cam.yaw = atan2(-c.global_transform.basis.z.x, -c.global_transform.basis.z.z) + 0.6
+	cam.yaw = sun_yaw + 0.5
 	cam.pitch = -0.18
 	await _wait(60)
 	await _shot("2_car_day")
 	cam.free_mode = true
+	cam.arm.spring_length = 0.0
+	var sd = Vector3(-sin(sun_yaw), 0, -cos(sun_yaw))
+	cam.global_position = c.global_position - sd * 5.5 + sd.cross(Vector3.UP) * 2.0 + Vector3(0, 1.4, 0)
+	cam.look_at(c.global_position + Vector3(0, 0.6, 0), Vector3.UP)
+	await _wait(20)
+	await _shot("2b_car_closeup")
+	for p in peds:
+		if is_instance_valid(p) and not p.dead:
+			cam.global_position = p.global_position - sd * 3.0 + Vector3(0, 1.6, 0)
+			cam.look_at(p.global_position + Vector3(0, 1.1, 0), Vector3.UP)
+			break
+	await _wait(10)
+	await _shot("2c_people")
 	cam.global_position = Vector3(-60, 95, 330)
 	cam.rotation = Vector3(-0.32, 0.25, 0)
 	cam.arm.spring_length = 0.0

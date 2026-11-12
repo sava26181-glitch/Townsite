@@ -32,8 +32,8 @@ static func paint_mat(color: Color) -> StandardMaterial3D:
 		return _mats[key]
 	var m = StandardMaterial3D.new()
 	m.albedo_color = color
-	m.metallic = 0.55
-	m.roughness = 0.22
+	m.metallic = 0.3
+	m.roughness = 0.28
 	m.clearcoat_enabled = true
 	m.clearcoat = 1.0
 	m.clearcoat_roughness = 0.08

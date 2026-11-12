@@ -458,6 +458,10 @@ func _build_scenery() -> void:
 				for t in [-0.5, 0.0, 0.5]:
 					if rng.randf() < 0.5:
 						tree_xf.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU), c2 + Vector3(t * e * 1.6, CURB, s * e)))
+	var spec_pts: Array = []
+	for k in special.keys():
+		spec_pts.append(special_pos(k))
+	tree_xf = tree_xf.filter(func(x): return spec_pts.all(func(sp): return (sp as Vector3).distance_to((x as Transform3D).origin) > 9.0))
 	var tree_scene = _prop("tree")
 	if tree_scene:
 		_instance_scene_multi(tree_scene, tree_xf, 300.0)
