@@ -133,6 +133,7 @@ func _ready() -> void:
 	banner.custom_minimum_size = Vector2(660, 0)
 	banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var bv = VBoxContainer.new()
+	bv.name = "VBox"
 	banner.add_child(bv)
 	var bt = Label.new()
 	bt.name = "T"
@@ -415,8 +416,8 @@ func show_big(title: String, sub: String, col: Color) -> void:
 
 
 func show_banner(title: String, text: String) -> void:
-	(banner.get_node("VBoxContainer/T") as Label).text = title
-	(banner.get_node("VBoxContainer/S") as Label).text = text
+	(banner.get_node("VBox/T") as Label).text = title
+	(banner.get_node("VBox/S") as Label).text = text
 	banner.visible = true
 	banner_t = 6.0
 

@@ -77,7 +77,7 @@ func _ready() -> void:
 			var w = VehicleWheel3D.new()
 			w.position = Vector3(sx * (W / 2.0 - 0.08), wr + 0.18, sz * wbz)
 			w.wheel_radius = wr
-			w.suspension_rest_length = 0.18
+			w.wheel_rest_length = 0.18
 			w.suspension_travel = 0.2
 			w.suspension_stiffness = 45.0 if base != "sport" else 60.0
 			w.suspension_max_force = mass * 12.0
