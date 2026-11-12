@@ -1,0 +1,156 @@
+name: Build APK + IPA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: "4.3"
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Download Poly Haven assets (CC0)
+        run: python3 tools/fetch_assets.py || echo "assets skipped"
+
+      - name: Install Godot + export templates
+        run: |
+          wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          unzip -q Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          sudo mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 /usr/local/bin/godot
+          wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          unzip -q Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          mkdir -p ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mv templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
+          rm -rf templates *.zip *.tpz
+
+      - name: Android SDK paths + debug keystore
+        run: |
+          keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore debug.keystore \
+            -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 9999
+          mkdir -p ~/.config/godot
+          cat > ~/.config/godot/editor_settings-${GODOT_VERSION}.tres <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "${ANDROID_SDK_ROOT}"
+          export/android/java_sdk_path = "${JAVA_HOME}"
+          export/android/debug_keystore = "${PWD}/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          EOF
+          sed -i 's/^          //' ~/.config/godot/editor_settings-${GODOT_VERSION}.tres
+          cp ~/.config/godot/editor_settings-${GODOT_VERSION}.tres ~/.config/godot/editor_settings-4.tres
+
+      - name: Import project
+        run: timeout 900 godot --headless --import || timeout 900 godot --headless --editor --quit || true
+
+      - name: Smoke test (run game headless)
+        run: |
+          timeout 180 godot --headless --quit-after 900 -- --autostart 2>&1 | tee smoke.log || true
+          if grep -E "SCRIPT ERROR|Parse Error|Failed to load script|Invalid call|Invalid access|Invalid assignment" smoke.log; then
+            echo "::error::Script errors found"; exit 1
+          fi
+
+      - name: In-game screenshots (software GPU)
+        continue-on-error: true
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb mesa-vulkan-drivers libgl1-mesa-dri > /dev/null
+          mkdir -p shots
+          timeout 300 xvfb-run -a -s "-screen 0 1280x720x24" godot --rendering-method mobile --resolution 1280x720 -- --shots=$PWD/shots 2>&1 | tail -20 || true
+          if [ -z "$(ls shots 2>/dev/null)" ]; then
+            timeout 300 xvfb-run -a -s "-screen 0 1280x720x24" godot --rendering-method gl_compatibility --resolution 1280x720 -- --shots=$PWD/shots 2>&1 | tail -20 || true
+          fi
+          ls -la shots
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Screenshots
+          path: shots/*.png
+          if-no-files-found: ignore
+
+      - name: Export APK
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        run: |
+          mkdir -p build
+          godot --headless --export-debug "Android" build/EmpireCity.apk 2>&1 | tee export.log
+          ls -la build
+          test -f build/EmpireCity.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EmpireCity-APK
+          path: build/EmpireCity.apk
+
+  ios:
+    runs-on: macos-14
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Poly Haven assets (CC0)
+        run: python3 tools/fetch_assets.py || echo "assets skipped"
+
+      - name: Install Godot + export templates
+        run: |
+          curl -sL -o godot.zip https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_macos.universal.zip
+          unzip -q godot.zip
+          curl -sL -o tpl.tpz https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          unzip -q tpl.tpz
+          mkdir -p "$HOME/Library/Application Support/Godot/export_templates/${GODOT_VERSION}.stable"
+          mv templates/* "$HOME/Library/Application Support/Godot/export_templates/${GODOT_VERSION}.stable/"
+          echo "GODOT=$PWD/Godot.app/Contents/MacOS/Godot" >> $GITHUB_ENV
+
+      - name: Import project
+        run: $GODOT --headless --import || $GODOT --headless --editor --quit || true
+
+      - name: Export Xcode project
+        run: |
+          mkdir -p build/ios
+          $GODOT --headless --export-debug "iOS" build/ios/EmpireCity.ipa 2>&1 | tee export.log || true
+          ls -la build/ios
+
+      - name: Build unsigned IPA
+        run: |
+          xcodebuild -project build/ios/EmpireCity.xcodeproj -scheme EmpireCity -configuration Debug \
+            -sdk iphoneos -destination generic/platform=iOS -derivedDataPath build/dd \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO DEVELOPMENT_TEAM="" build | tail -30
+          APP=$(find build/dd -name "*.app" -type d | head -1)
+          mkdir -p Payload && cp -R "$APP" Payload/
+          zip -qr build/EmpireCity.ipa Payload
+          ls -la build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EmpireCity-IPA
+          path: build/EmpireCity.ipa
+
+  release:
+    needs: [android, ios]
+    if: always() && needs.android.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+      - name: Publish release (ссылки для скачивания на телефон)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Empire City — сборка ${{ github.run_number }}
+          files: out/**/*

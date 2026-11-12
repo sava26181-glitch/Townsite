@@ -1,0 +1,6 @@
+.godot/
+build/
+*.tmp
+server/node_modules/
+assets/tex/*.jpgdata
+assets/props/
